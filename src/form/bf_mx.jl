@@ -880,3 +880,75 @@ function constraint_mc_power_balance(pm::KCLMXModels, nw::Int, i::Int, terminals
         sol(pm, nw, :bus, i)[:lam_kcl_i] = cstr_q
     end
 end
+"This function adds all constraints required to model a two-winding, delta-wye connected transformer."
+function constraint_mc_transformer_power_dy(pm::AbstractUBFModels, nw::Int, trans_id::Int, f_bus::Int, t_bus::Int, f_idx::Tuple{Int,Int,Int}, t_idx::Tuple{Int,Int,Int}, f_connections::Vector{Int}, t_connections::Vector{Int}, pol::Int, tm_set::Vector{<:Real}, tm_fixed::Vector{Bool}, tm_scale::Real)
+    vr_p_fr = [var(pm, nw, :vr, f_bus)[c] for c in f_connections]
+    vr_p_to = [var(pm, nw, :vr, t_bus)[c] for c in t_connections]
+    vi_p_fr = [var(pm, nw, :vi, f_bus)[c] for c in f_connections]
+    vi_p_to = [var(pm, nw, :vi, t_bus)[c] for c in t_connections]
+
+    nph = length(tm_set)
+    @assert length(f_connections) == length(t_connections) && nph == 3 "only phases == 3 dy transformers are currently supported"
+
+    M = _get_delta_transformation_matrix(nph)
+
+    # construct tm as a parameter or scaled variable depending on whether it is fixed or not
+    tm = [tm_fixed[idx] ? tm_set[idx] : var(pm, nw, :tap, trans_id)[fc] for (idx,(fc,tc)) in enumerate(zip(f_connections,t_connections))]
+
+    # introduce auxialiary variable vd = Md*v_fr
+    vrd = M*vr_p_fr
+    vid = M*vi_p_fr
+
+    JuMP.@constraint(pm.model, vrd .== (pol*tm_scale)*tm.*vr_p_to)
+    JuMP.@constraint(pm.model, vid .== (pol*tm_scale)*tm.*vi_p_to)
+
+    p_fr = var(pm, nw, :pt, f_idx)
+    p_to = var(pm, nw, :pt, t_idx)
+    q_fr = var(pm, nw, :qt, f_idx)
+    q_to = var(pm, nw, :qt, t_idx)
+
+    ir_to= var(pm, nw, :crt, t_idx)
+    ii_to= var(pm, nw, :cri, t_idx)
+
+    w_to= var(pm, nw, :wt, t_idx)
+
+    #arcs_transformer_to, to add variables only for the to side?
+    wir_to = var(pm, nw, :wt_crt, t_idx)
+    wii_to = var(pm, nw, :wt_cit, t_idx)
+
+    p_vr_to= var(pm, nw, :pt_vr, t_idx)
+    q_vr_to= var(pm, nw, :qt_vr, t_idx)
+    p_vi_to= var(pm, nw, :pt_vi, t_idx)
+    q_vi_to= var(pm, nw, :qt_vi, t_idx)
+
+    for (idx, (fc,tc)) in enumerate(zip(f_connections,t_connections))
+        # id = conj(s_to/v_to)./tm
+         JuMP.@constraint(pm.model, wir_to[idx]==(p_vr_to[idx]+q_vi_to[idx])/(tm_scale*tm[idx]*pol))
+         JuMP.@constraint(pm.model, wii_to[idx]==(p_vi_to[idx]-q_vr_to[idx])/(tm_scale*tm[idx]*pol))
+         JuMP.@constraint(pm.model, w_to[idx] >= vr_p_to[idx]^2+vi_p_to[idx]^2)
+    
+#Add secant, how get lower and upper bound?
+         _IM.relaxation_product(w_to[idx],ir_to[idx],wir_to[idx])
+         _IM.relaxation_product(w_to[idx],ii_to[idx],wii_to[idx])
+         _IM.relaxation_product(p_to[idx],vr_p_to[idx], p_vr_to[idx])
+         _IM.relaxation_product(q_to[idx],vr_p_to[idx], q_vr_to[idx])
+         _IM.relaxation_product(p_to[idx],vi_p_to[idx], p_vi_to[idx],)
+         _IM.relaxation_product(q_to[idx],vi_p_to[idx], q_vi_to[idx])
+    end
+  
+
+    for (idx,(fc,tc)) in enumerate(zip(f_connections, t_connections))
+        jdx = (idx-1+nph-1)%nph+1
+        # s_fr  = v_fr*conj(i_fr)
+        #       = v_fr*conj(id[q]-id[p])
+        #       = v_fr*(id_re[q]-j*id_im[q]-id_re[p]+j*id_im[p])
+        #JuMP.@NLconstraint(pm.model, p_fr[fc] ==
+         #    vr_p_fr[idx]*( id_re[jdx]-id_re[idx])
+          #  -vi_p_fr[idx]*(-id_im[jdx]+id_im[idx])
+        #)
+        #JuMP.@NLconstraint(pm.model, q_fr[fc] ==
+         #    vr_p_fr[idx]*(-id_im[jdx]+id_im[idx])
+          #  +vi_p_fr[idx]*( id_re[jdx]-id_re[idx])
+        #)
+    end
+end

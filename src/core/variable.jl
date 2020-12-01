@@ -273,7 +273,7 @@ end
 
 
 "variable: `cr[l,i,j]` for `(l,i,j)` in `arcs`"
-function variable_mc_transformer_current_real(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+function variable_mc_transformer_current_real(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=false, report::Bool=true)
     connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
     cr = var(pm, nw)[:crt] = Dict((l,i,j) => JuMP.@variable(pm.model,
             [c in connections[(l,i,j)]], base_name="$(nw)_crt_$((l,i,j))",
@@ -299,7 +299,7 @@ end
 
 
 "variable: `ci[l,i,j] ` for `(l,i,j)` in `arcs`"
-function variable_mc_transformer_current_imaginary(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+function variable_mc_transformer_current_imaginary(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=false, report::Bool=true)
     connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
     ci = var(pm, nw)[:cit] = Dict((l,i,j) => JuMP.@variable(pm.model,
             [c in connections[(l,i,j)]], base_name="$(nw)_cit_$((l,i,j))",
@@ -551,6 +551,17 @@ function variable_mc_transformer_power_real(pm::_PM.AbstractPowerModel; nw::Int=
             [c in connections[(l,i,j)]], base_name="$(nw)_pt_$((l,i,j))",
         ) for (l,i,j) in ref(pm, nw, :arcs_trans)
     )
+    for (l,i,j) in ref(pm, nw, :arcs_trans)
+        @show (l,i,j)
+    end
+
+    for (l,i,j) in ref(pm, nw, :arcs_from_trans)
+        @show (l,i,j)
+    end
+
+    for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+        @show (l,i,j)
+    end
 
     if bounded
         for arc in ref(pm, nw, :arcs_from_trans)
@@ -619,6 +630,55 @@ function variable_mc_transformer_power_imaginary(pm::_PM.AbstractPowerModel; nw:
     end
 
     report && _IM.sol_component_value_edge(pm, nw, :transformer, :qf, :qt, ref(pm, nw, :arcs_from_trans), ref(pm, nw, :arcs_to_trans), qt)
+end
+
+"Create voltage squared variables in transformer windings."
+function variable_mc_transformer_voltage_sqr(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+    connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
+    wt = var(pm, nw)[:wt] = Dict((l,i,j) => JuMP.@variable(pm.model,
+            [c in connections[(l,i,j)]], base_name="$(nw)_wt_$((l,i,j))",
+        ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+    )
+end
+
+"Create voltage squared-real current product variables in transformer windings."
+function variable_mc_transformer_w_realcurrent(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+    connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
+    wt_crt = var(pm, nw)[:wt_crt] = Dict((l,i,j) => JuMP.@variable(pm.model,
+            [c in connections[(l,i,j)]], base_name="$(nw)_wt_crt_$((l,i,j))",
+        ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+    )
+end
+
+"Create voltage squared-imaginary current product variables in transformer windings."
+function variable_mc_transformer_w_imagcurrent(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+    connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
+    wt_cit = var(pm, nw)[:wt_cit] = Dict((l,i,j) => JuMP.@variable(pm.model,
+            [c in connections[(l,i,j)]], base_name="$(nw)_wt_cit_$((l,i,j))",
+        ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+    )
+end
+
+
+"Create power-voltage product variables in transformer windings."
+function variable_mc_transformer_power_voltage(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+    connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
+    pt_vr = var(pm, nw)[:pt_vr] = Dict((l,i,j) => JuMP.@variable(pm.model,
+            [c in connections[(l,i,j)]], base_name="$(nw)_pt_vr$((l,i,j))",
+        ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+    )
+    pt_vi = var(pm, nw)[:pt_vi] = Dict((l,i,j) => JuMP.@variable(pm.model,
+    [c in connections[(l,i,j)]], base_name="$(nw)_pt_vi$((l,i,j))",
+) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+)
+qt_vr = var(pm, nw)[:qt_vr] = Dict((l,i,j) => JuMP.@variable(pm.model,
+[c in connections[(l,i,j)]], base_name="$(nw)_qt_vr$((l,i,j))",
+) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+)
+qt_vi = var(pm, nw)[:qt_vi] = Dict((l,i,j) => JuMP.@variable(pm.model,
+[c in connections[(l,i,j)]], base_name="$(nw)_qt_vi$((l,i,j))",
+) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
+)
 end
 
 
