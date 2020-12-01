@@ -649,9 +649,8 @@ function variable_mc_transformer_w_imagcurrent(pm::_PM.AbstractPowerModel; nw::I
             [c in connections[(l,i,j)]], base_name="$(nw)_wt_cit_$((l,i,j))",
         ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
     )
+    @show("created wt_cit")
 end
-
-
 "Create power-voltage product variables in transformer windings."
 function variable_mc_transformer_power_voltage(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
     connections = Dict((l,i,j) => connections for (bus,entry) in ref(pm, nw, :bus_arcs_conns_transformer) for ((l,i,j), connections) in entry)
@@ -671,6 +670,7 @@ qt_vi = var(pm, nw)[:qt_vi] = Dict((l,i,j) => JuMP.@variable(pm.model,
 [c in connections[(l,i,j)]], base_name="$(nw)_qt_vi$((l,i,j))",
 ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
 )
+@show("created pt_vr, qt_vr, qt_vr, qt_vi")
 end
 
 
