@@ -551,17 +551,7 @@ function variable_mc_transformer_power_real(pm::_PM.AbstractPowerModel; nw::Int=
             [c in connections[(l,i,j)]], base_name="$(nw)_pt_$((l,i,j))",
         ) for (l,i,j) in ref(pm, nw, :arcs_trans)
     )
-    for (l,i,j) in ref(pm, nw, :arcs_trans)
-        @show (l,i,j)
-    end
-
-    for (l,i,j) in ref(pm, nw, :arcs_from_trans)
-        @show (l,i,j)
-    end
-
-    for (l,i,j) in ref(pm, nw, :arcs_to_trans)
-        @show (l,i,j)
-    end
+    @show("created active power")
 
     if bounded
         for arc in ref(pm, nw, :arcs_from_trans)
@@ -603,7 +593,7 @@ function variable_mc_transformer_power_imaginary(pm::_PM.AbstractPowerModel; nw:
             start = 0.0
         ) for (l,i,j) in ref(pm, nw, :arcs_trans)
     )
-
+    @show("created reactive power")
     if bounded
         for arc in ref(pm, nw, :arcs_from_trans)
             (l,i,j) = arc
@@ -639,6 +629,7 @@ function variable_mc_transformer_voltage_sqr(pm::_PM.AbstractPowerModel; nw::Int
             [c in connections[(l,i,j)]], base_name="$(nw)_wt_$((l,i,j))",
         ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
     )
+    @show("created wt")
 end
 
 "Create voltage squared-real current product variables in transformer windings."
@@ -648,6 +639,7 @@ function variable_mc_transformer_w_realcurrent(pm::_PM.AbstractPowerModel; nw::I
             [c in connections[(l,i,j)]], base_name="$(nw)_wt_crt_$((l,i,j))",
         ) for (l,i,j) in ref(pm, nw, :arcs_to_trans)
     )
+    @show("created wt_crt")
 end
 
 "Create voltage squared-imaginary current product variables in transformer windings."
