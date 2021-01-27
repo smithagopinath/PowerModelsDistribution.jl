@@ -41,7 +41,13 @@ end
 
 function variable_W(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
     terminals = Dict(i => bus["terminals"] for (i,bus) in ref(pm, nw, :bus))
-    JuMP.@variable(pm.model, base_name="$(nw)_W_$(ij)", W[(i,j)=ref(pm, nw, :buspairs), c=terminals[i], d=terminals[j]])
+    W = Dict()
+
+    for (i,j) in ids(pm, nw, :buspairs)
+        W[i,j]=JuMP.@variable(pm.model)
+    end
+
+    #JuMP.@variable(pm.model, base_name="$(nw)_W_$(ij)", W[(i,j)=ref(pm, nw, :buspairs), c=terminals[i], d=terminals[j]])
 
     #report && _IM.sol_component_value(pm, nw, :buspairs, :W, :buspairs, W)
 end
