@@ -19,6 +19,7 @@ end
 "Constructor for Optimal Power Flow"
 function build_mc_opf(pm::_PM.AbstractPowerModel)
     variable_mc_bus_voltage(pm)
+    variable_W(pm)
     variable_mc_branch_power(pm)
     variable_mc_transformer_power(pm)
     variable_mc_generator_power(pm)

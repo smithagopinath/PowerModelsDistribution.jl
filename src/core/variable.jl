@@ -39,6 +39,18 @@ function variable_mc_bus_voltage_angle(pm::_PM.AbstractPowerModel; nw::Int=pm.cn
     report && _IM.sol_component_value(pm, nw, :bus, :va, ids(pm, nw, :bus), va)
 end
 
+function variable_W(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
+    terminals = Dict(i => bus["terminals"] for (i,bus) in ref(pm, nw, :bus))
+    JuMP.@variable(pm.model, base_name="$(nw)_W_$(ij)", W[(i,j)=ref(pm, nw, :buspairs), c=terminals[i], d=terminals[j]])
+
+    #report && _IM.sol_component_value(pm, nw, :buspairs, :W, :buspairs, W)
+end
+
+
+
+
+
+
 
 ""
 function variable_mc_bus_voltage_magnitude_only(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
@@ -129,11 +141,17 @@ function variable_mc_branch_power_real(pm::_PM.AbstractPowerModel; nw::Int=pm.cn
     )
 
     if bounded
-        for (l,i,j) in ref(pm, nw, :arcs)
+        for (l,i,j) in ref(pm, nw, :arcs_from)
             smax = _calc_branch_power_max(ref(pm, nw, :branch, l), ref(pm, nw, :bus, i))
             for (idx, c) in enumerate(connections[(l,i,j)])
-                set_upper_bound(p[(l,i,j)][c],  smax[idx])
+@show("ent")                
+if isinf(smax[idx])
+smax[idx]=10;
+end
+set_upper_bound(p[(l,i,j)][c],  smax[idx])
                 set_lower_bound(p[(l,i,j)][c], -smax[idx])
+ 		set_upper_bound(p[(l,j,i)][c],  smax[idx])
+                set_lower_bound(p[(l,j,i)][c], -smax[idx])
             end
         end
     end
@@ -166,11 +184,17 @@ function variable_mc_branch_power_imaginary(pm::_PM.AbstractPowerModel; nw::Int=
     )
 
     if bounded
-        for (l,i,j) in ref(pm, nw, :arcs)
+        for (l,i,j) in ref(pm, nw, :arcs_from)
             smax = _calc_branch_power_max(ref(pm, nw, :branch, l), ref(pm, nw, :bus, i))
             for (idx, c) in enumerate(connections[(l,i,j)])
+@show("ent")
+if isinf(smax[idx])
+smax[idx]=10;
+end
                 set_upper_bound(q[(l,i,j)][c],  smax[idx])
                 set_lower_bound(q[(l,i,j)][c], -smax[idx])
+		 set_upper_bound(q[(l,j,i)][c],  smax[idx])
+                set_lower_bound(q[(l,j,i)][c], -smax[idx])
             end
         end
     end
@@ -907,12 +931,12 @@ function variable_mc_generator_power_real(pm::_PM.AbstractPowerModel; nw::Int=pm
         for (i,gen) in ref(pm, nw, :gen)
             if haskey(gen, "pmin")
                 for (idx,c) in enumerate(connections[i])
-                    set_lower_bound(pg[i][c], gen["pmin"][idx])
+                    set_lower_bound(pg[i][c], 0)
                 end
             end
             if haskey(gen, "pmax")
                 for (idx,c) in enumerate(connections[i])
-                    set_upper_bound(pg[i][c], gen["pmax"][idx])
+                    set_upper_bound(pg[i][c], 10)
                 end
             end
         end
@@ -937,12 +961,12 @@ function variable_mc_generator_power_imaginary(pm::_PM.AbstractPowerModel; nw::I
         for (i,gen) in ref(pm, nw, :gen)
             if haskey(gen, "qmin")
                 for (idx,c) in enumerate(connections[i])
-                    set_lower_bound(qg[i][c], gen["qmin"][idx])
+                    set_lower_bound(qg[i][c], -10)
                 end
             end
             if haskey(gen, "qmax")
                 for (idx,c) in enumerate(connections[i])
-                    set_upper_bound(qg[i][c], gen["qmax"][idx])
+                    set_upper_bound(qg[i][c], 10)
                 end
             end
         end
@@ -1014,13 +1038,13 @@ function variable_mc_generator_power_real_on_off(pm::_PM.AbstractPowerModel; nw:
         for (i, gen) in ref(pm, nw, :gen)
             if haskey(gen, "pmin")
                 for (idx, c) in enumerate(connections[i])
-                    set_lower_bound(pg[i][c], gen["pmin"][idx])
+                    set_lower_bound(pg[i][c], 0)
                 end
             end
 
             if haskey(gen, "pmax")
                 for (idx, c) in enumerate(connections[i])
-                    set_upper_bound(pg[i][c], gen["pmax"][idx])
+                    set_upper_bound(pg[i][c], 1e6)
                 end
             end
         end
@@ -1043,13 +1067,13 @@ function variable_mc_generator_power_imaginary_on_off(pm::_PM.AbstractPowerModel
         for (i, gen) in ref(pm, nw, :gen)
             if haskey(gen, "qmin")
                 for (idx, c) in enumerate(connections[i])
-                    set_lower_bound(qg[i][c], gen["qmin"][idx])
+                    set_lower_bound(qg[i][c], -1e6)
                 end
             end
 
             if haskey(gen, "qmax")
                 for (idx, c) in enumerate(connections[i])
-                    set_upper_bound(qg[i][c], gen["qmax"][idx])
+                    set_upper_bound(qg[i][c], 1e6)
                 end
             end
         end
