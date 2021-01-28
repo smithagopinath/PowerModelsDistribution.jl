@@ -41,20 +41,67 @@ end
 
 function variable_W(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw, bounded::Bool=true, report::Bool=true)
     terminals = Dict(i => bus["terminals"] for (i,bus) in ref(pm, nw, :bus))
-    WD = Dict()
+    WRD = Dict()
+    WID = Dict()
+    WD=Dict()
 
-#    for(i,j,c,d) in ref(pm, nw, :buspair_indexes)
- #       @show(i,j,c,d)
-  #  end
-
-for (l,i,j) in ref(pm, nw, :arcs)
+for (i, j) in ids(pm, nw, :buspairs)
     for (c) in terminals[i]
-       for (d) in terminals[j]
-        WD[i,j,c,d]=JuMP.@variable(pm.model, base_name="$(nw)_W_$((i,j,c,d))", lower_bound=0)
+        for (d) in terminals[j]
+            buspair = ref(pm, nw, :buspairs)[(i, j)]
+            vmag_i=(max(buspair["vm_fr_max"][c],buspair["vm_fr_min"][c]*(-1)))
+            vmag_j=(max(buspair["vm_to_max"][d],buspair["vm_to_min"][d]*(-1)))
+           if(c==d)
+            ang_min=buspair["angmin"]
+            ang_max=buspair["angmax"]
+            if(ang_min<=0)
+                cos_max=1
+                cos_min=min(cos(ang_min), cos(ang_max))
+            else
+               cos_max=cos(ang_min)
+               cos_min=cos(ang_max)
+            end
+            sin_min=sin(ang_min)
+            sin_max=sin(ang_max)
+            lb_wr=vmag_i*vmag_j*cos_min
+            ub_wr=vmag_i*vmag_j*cos_max
+            lb_wi=vmag_i*vmag_j*sin_min
+            ub_wi=vmag_i*vmag_j*sin_max
+           else
+            lb_wr=-vmag_i*vmag_j
+            ub_wr=vmag_i*vmag_j
+            lb_wi=lb_wr
+            ub_wi=ub_wr
+           end
+        WRD[i,j,c,d]=JuMP.@variable(pm.model, base_name="$(nw)_WR_$((i,j,c,d))", start=1, lower_bound=lb_wr, upper_bound=ub_wr)
+        WID[i,j,c,d]=JuMP.@variable(pm.model, base_name="$(nw)_WI_$((i,j,c,d))", start=0, lower_bound=lb_wi, upper_bound=ub_wi)
   end
 end
 end
+
+for (i) in ids(pm, nw, :bus)
+    for (c) in terminals[i]
+        for (d) in terminals[i]
+            busi= ref(pm, nw, :bus)[i]
+            vmag_ic=(max(busi["vmax"][c],busi["vmin"][c]*(-1)))
+            vmag_id=(max(busi["vmax"][d],busi["vmin"][d]*(-1)))
+            lb=-vmag_ic*vmag_id
+            ub=vmag_ic*vmag_id
+            if(d>c)
+                WRD[i,i,c,d]=JuMP.@variable(pm.model, base_name="$(nw)_WR_$((i,i,c,d))",start=1, lower_bound=lb, upper_bound=ub)
+                WID[i,i,c,d]=JuMP.@variable(pm.model, base_name="$(nw)_WI_$((i,i,c,d))",start=0, lower_bound=lb, upper_bound=ub)
+            end
+            if(d==c)
+                WD[i,i,c,c]=JuMP.@variable(pm.model, base_name="$(nw)_W_$((i,i,c,c))", start=1, lower_bound=0, upper_bound=ub)
+            end
+        end
+    end
+end
+
+
 W= var(pm, nw)[:W]=WD
+WR= var(pm, nw)[:WR]=WRD
+WI= var(pm, nw)[:WI]=WID
 
     #JuMP.@variable(pm.model, base_name="$(nw)_W_$(ij)", W[(i,j)=ref(pm, nw, :buspairs), c=terminals[i], d=terminals[j]])
 

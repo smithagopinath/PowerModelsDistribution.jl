@@ -3,8 +3,12 @@ function constraint_mc_theta_ref(pm::_PM.AbstractPowerModel, i::Int; nw::Int=pm.
     va_ref = ref(pm, nw, :bus, i, "va")
     constraint_mc_theta_ref(pm, nw, i, va_ref)
 end
-
-
+function constraint_W(pm::_PM.AbstractPowerModel; nw::Int=pm.cnw)
+    constraint_W(pm, nw)
+end
+function constraint_pg_pl(pm::_PM.AbstractPowerModel, nw::Int=pm.cnw)
+    constraint_pg_pl(pm,nw)
+end
 ""
 function constraint_mc_power_balance_slack(pm::_PM.AbstractPowerModel, i::Int; nw::Int=pm.cnw)
     bus = ref(pm, nw, :bus, i)

@@ -66,6 +66,8 @@ function build_mc_opf(pm::_PM.AbstractPowerModel)
     for i in ids(pm, :transformer)
         constraint_mc_transformer_power(pm, i)
     end
+    constraint_W(pm)
+    constraint_pg_pl(pm)
 
     objective_mc_min_fuel_cost(pm)
 end

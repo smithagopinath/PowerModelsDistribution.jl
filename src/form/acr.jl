@@ -487,7 +487,7 @@ function constraint_mc_power_balance_shed(pm::_PM.AbstractACRModel, nw::Int, i::
         push!(cstr_q, cq)
     end
 
-    con(pm, nw, :lam_kcl_r)[i] = cstr_p
+    con(pm, nw, :lam_kcl_r)[i] = cstr_p 
     con(pm, nw, :lam_kcl_i)[i] = cstr_q
 
     if _IM.report_duals(pm)
@@ -496,6 +496,115 @@ function constraint_mc_power_balance_shed(pm::_PM.AbstractACRModel, nw::Int, i::
     end
 end
 
+function constraint_pg_pl(pm::_PM.AbstractACRModel, nw::Int)
+    #Need to account for buses attached to transformers, switches, bus_shunts
+    for j=1:3
+        sump=0
+    for (i) in ids(pm, nw, :bus)
+        bus = ref(pm, nw, :bus, i)
+        bus_arcs = ref(pm, nw, :bus_arcs_conns_branch, i)
+        bus_arcs_sw = ref(pm, nw, :bus_arcs_conns_switch, i)
+        bus_arcs_trans = ref(pm, nw, :bus_arcs_conns_transformer, i)
+        bus_gens = ref(pm, nw, :bus_conns_gen, i)
+        bus_storage = ref(pm, nw, :bus_conns_storage, i)
+        bus_loads = ref(pm, nw, :bus_conns_load, i)
+        pg   = get(var(pm, nw), :pg_bus, Dict()); _PM._check_var_keys(pg,  bus_gens,       "active power",   "generator")
+        ps   = get(var(pm, nw), :ps,     Dict()); _PM._check_var_keys(ps,  bus_storage,    "active power",   "storage")
+        pd   = get(var(pm, nw), :pd_bus, Dict()); _PM._check_var_keys(pd,  bus_loads,      "active power",   "load")
+
+        for (g, conns) in bus_gens 
+            if j in conns
+                sump+=(pg[g][j])
+            end
+        end
+
+        for (g, conns) in bus_storage
+            if j in conns
+                sump+=(ps[g][j])
+            end
+        end
+
+        for (g, conns) in bus_loads
+            if j in conns
+                sump-=(pd[g][j])
+            end
+        end
+
+    end
+    cw=JuMP.@constraint(pm.model,sump>=0)
+end
+end
+
+function constraint_W(pm::_PM.AbstractACRModel, nw::Int)
+    terminals = Dict(i => bus["terminals"] for (i,bus) in ref(pm, nw, :bus))
+    WR=var(pm, nw, :WR)
+    WI=var(pm, nw, :WI)
+    W=var(pm, nw, :W)
+    cstr_W = []
+    cstr_Wi=[]
+    cstr_Wr_vij=[]
+    cstr_Wi_vij=[]
+    for (i, j) in ids(pm, nw, :buspairs)
+        for (c) in terminals[i]
+            for (d) in terminals[j]
+            cw=JuMP.@NLconstraint(pm.model,WR[i,j,c,d]^2+WI[i,j,c,d]^2-W[i,i,c,c]*W[j,j,d,d]==0)
+            push!(cstr_W,cw)
+          
+      end
+    end
+    end
+    for (i) in ids(pm, nw, :bus)
+        for (c) in terminals[i]
+            for (d) in terminals[i]
+                if(d>c)
+                    @show "entered like"
+                    cwi=JuMP.@NLconstraint(pm.model,WR[i,i,c,d]^2+WI[i,i,c,d]^2-W[i,i,c,c]*W[i,i,d,d]==0)
+                    push!(cstr_Wi,cwi)
+                end
+            end
+        end
+    end
+
+    for (i, j) in ids(pm, nw, :buspairs)
+        for (c) in terminals[i]
+            for (d) in terminals[j]
+                vr_i = var(pm, nw, :vr, i)
+                vi_i = var(pm, nw, :vi, i)
+                vr_j = var(pm, nw, :vr, j)
+                vi_j = var(pm, nw, :vi, j)
+            cw1=JuMP.@NLconstraint(pm.model,WR[i,j,c,d]==vr_i[c]*vr_j[d]+vi_i[c]*vi_j[d])
+            cw2=JuMP.@NLconstraint(pm.model,WI[i,j,c,d]==vi_i[c]*vr_j[d]-vr_i[c]*vi_j[d])
+            push!(cstr_Wr_vij,cw1)
+            push!(cstr_Wi_vij,cw2)
+      end
+    end
+    end
+
+    # for (i) in ids(pm, nw, :bus)
+    #     for (c) in terminals[i]
+    #         for (d) in terminals[i]
+    #             if(d>c)
+    #                 vr_i = var(pm, nw, :vr, i)
+    #                 vi_i = var(pm, nw, :vi, i)
+
+    #                 cw1=JuMP.@NLconstraint(pm.model,WR[i,i,c,d]==vr_i[c]*vr_i[d]+vi_i[c]*vi_i[d])
+    #                 cw2=JuMP.@NLconstraint(pm.model,WI[i,i,c,d]==vi_i[c]*vr_i[d]-vr_i[c]*vi_i[d])
+    #                 push!(cstr_Wr_vij,cw1)
+    #                 push!(cstr_Wi_vij,cw2)
+    #             end
+    #             if(d==c)
+    #                 vr_i = var(pm, nw, :vr, i)
+    #                 vi_i = var(pm, nw, :vi, i)
+
+    #                 cw1=JuMP.@NLconstraint(pm.model,W[i,i,c,d]==vr_i[c]*vr_i[d]+vi_i[c]*vi_i[d])
+    
+    #                 push!(cstr_Wr_vij,cw1)
+    #             end
+    #         end
+    #     end
+    # end
+
+end
 
 """
 Creates Ohms constraints
