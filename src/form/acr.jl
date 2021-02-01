@@ -547,7 +547,7 @@ function constraint_W(pm::_PM.AbstractACRModel, nw::Int)
     for (i, j) in ids(pm, nw, :buspairs)
         for (c) in terminals[i]
             for (d) in terminals[j]
-            cw=JuMP.@NLconstraint(pm.model,WR[i,j,c,d]^2+WI[i,j,c,d]^2-W[i,i,c,c]*W[j,j,d,d]==0)
+            cw=JuMP.@NLconstraint(pm.model,WR[i,j,c,d]^2+WI[i,j,c,d]^2-W[i,i,c,c]*W[j,j,d,d]<=0)
             push!(cstr_W,cw)
           
       end
@@ -558,7 +558,7 @@ function constraint_W(pm::_PM.AbstractACRModel, nw::Int)
             for (d) in terminals[i]
                 if(d>c)
                     @show "entered like"
-                    cwi=JuMP.@NLconstraint(pm.model,WR[i,i,c,d]^2+WI[i,i,c,d]^2-W[i,i,c,c]*W[i,i,d,d]==0)
+                    cwi=JuMP.@NLconstraint(pm.model,WR[i,i,c,d]^2+WI[i,i,c,d]^2-W[i,i,c,c]*W[i,i,d,d]<=0)
                     push!(cstr_Wi,cwi)
                 end
             end
@@ -580,29 +580,29 @@ function constraint_W(pm::_PM.AbstractACRModel, nw::Int)
     end
     end
 
-    # for (i) in ids(pm, nw, :bus)
-    #     for (c) in terminals[i]
-    #         for (d) in terminals[i]
-    #             if(d>c)
-    #                 vr_i = var(pm, nw, :vr, i)
-    #                 vi_i = var(pm, nw, :vi, i)
+    for (i) in ids(pm, nw, :bus)
+        for (c) in terminals[i]
+            for (d) in terminals[i]
+                if(d>c)
+                    vr_i = var(pm, nw, :vr, i)
+                    vi_i = var(pm, nw, :vi, i)
 
-    #                 cw1=JuMP.@NLconstraint(pm.model,WR[i,i,c,d]==vr_i[c]*vr_i[d]+vi_i[c]*vi_i[d])
-    #                 cw2=JuMP.@NLconstraint(pm.model,WI[i,i,c,d]==vi_i[c]*vr_i[d]-vr_i[c]*vi_i[d])
-    #                 push!(cstr_Wr_vij,cw1)
-    #                 push!(cstr_Wi_vij,cw2)
-    #             end
-    #             if(d==c)
-    #                 vr_i = var(pm, nw, :vr, i)
-    #                 vi_i = var(pm, nw, :vi, i)
+                    cw1=JuMP.@NLconstraint(pm.model,WR[i,i,c,d]==vr_i[c]*vr_i[d]+vi_i[c]*vi_i[d])
+                    cw2=JuMP.@NLconstraint(pm.model,WI[i,i,c,d]==vi_i[c]*vr_i[d]-vr_i[c]*vi_i[d])
+                    push!(cstr_Wr_vij,cw1)
+                    push!(cstr_Wi_vij,cw2)
+                end
+                if(d==c)
+                    vr_i = var(pm, nw, :vr, i)
+                    vi_i = var(pm, nw, :vi, i)
 
-    #                 cw1=JuMP.@NLconstraint(pm.model,W[i,i,c,d]==vr_i[c]*vr_i[d]+vi_i[c]*vi_i[d])
+                    cw1=JuMP.@NLconstraint(pm.model,W[i,i,c,d]==vr_i[c]*vr_i[d]+vi_i[c]*vi_i[d])
     
-    #                 push!(cstr_Wr_vij,cw1)
-    #             end
-    #         end
-    #     end
-    # end
+                    push!(cstr_Wr_vij,cw1)
+                end
+            end
+        end
+    end
 
 end
 
